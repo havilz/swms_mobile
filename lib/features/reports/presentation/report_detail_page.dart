@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -7,6 +5,7 @@ import '../../../shared/theme/app_theme.dart';
 import '../../../shared/ui/atoms/status_badge.dart';
 import '../data/report_model.dart';
 import 'report_detail_controller.dart';
+import 'report_image_provider.dart';
 
 class ReportDetailPage extends GetView<ReportDetailController> {
   const ReportDetailPage({super.key});
@@ -94,8 +93,8 @@ class ReportDetailPage extends GetView<ReportDetailController> {
                 border: Border.all(color: AppTheme.border),
               ),
               clipBehavior: Clip.antiAlias,
-              child: FutureBuilder<Uint8List>(
-                future: controller.loadImage(report.id),
+              child: FutureBuilder(
+                future: controller.loadImage(report),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return const Center(
@@ -105,7 +104,8 @@ class ReportDetailPage extends GetView<ReportDetailController> {
                       ),
                     );
                   }
-                  if (!snapshot.hasData) {
+                  final imageRequest = snapshot.data;
+                  if (imageRequest == null) {
                     return const Center(
                       child: SizedBox(
                         width: 180,
@@ -113,11 +113,29 @@ class ReportDetailPage extends GetView<ReportDetailController> {
                       ),
                     );
                   }
-                  return Image.memory(
-                    snapshot.data!,
+                  return Image(
+                    image: ReportImageProvider(
+                      imageRequest.uri.toString(),
+                      headers: imageRequest.headers,
+                    ),
                     width: double.infinity,
                     height: 280,
                     fit: BoxFit.contain,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(
+                        child: SizedBox(
+                          width: 180,
+                          child: LinearProgressIndicator(),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text('Foto laporan tidak dapat dimuat.'),
+                      ),
+                    ),
                   );
                 },
               ),

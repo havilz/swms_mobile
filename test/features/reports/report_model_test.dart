@@ -16,6 +16,7 @@ void main() {
             'longitude': '106.8',
             'status': 'in_progress',
             'admin_notes': 'Sedang ditangani',
+            'updated_at': '2026-11-04T10:00:00.000000Z',
           },
         ],
         'meta': {'current_page': 2, 'last_page': 5, 'total': 42},
@@ -27,6 +28,10 @@ void main() {
       expect(page.items.single.latitude, -6.2);
       expect(page.items.single.longitude, 106.8);
       expect(page.items.single.adminNotes, 'Sedang ditangani');
+      expect(
+        page.items.single.updatedAt,
+        DateTime.parse('2026-11-04T10:00:00.000000Z'),
+      );
     },
   );
 

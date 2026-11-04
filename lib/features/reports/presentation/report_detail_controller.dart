@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:get/get.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -16,7 +14,8 @@ class ReportDetailController extends GetxController {
   final isDeleting = false.obs;
   final errorMessage = RxnString();
   int? _imageReportId;
-  Future<Uint8List>? _imageFuture;
+  int? _imageVersion;
+  Future<ReportImageRequest>? _imageFuture;
 
   @override
   void onInit() {
@@ -35,6 +34,7 @@ class ReportDetailController extends GetxController {
     try {
       report.value = await _repository.detail(reportId);
       _imageReportId = null;
+      _imageVersion = null;
       _imageFuture = null;
       errorMessage.value = null;
     } on ApiException catch (error) {
@@ -44,10 +44,14 @@ class ReportDetailController extends GetxController {
     }
   }
 
-  Future<Uint8List> loadImage(int reportId) {
-    if (_imageReportId != reportId || _imageFuture == null) {
-      _imageReportId = reportId;
-      _imageFuture = _repository.image(reportId);
+  Future<ReportImageRequest> loadImage(ReportModel report) {
+    final version = report.updatedAt?.microsecondsSinceEpoch ?? 0;
+    if (_imageReportId != report.id ||
+        _imageVersion != version ||
+        _imageFuture == null) {
+      _imageReportId = report.id;
+      _imageVersion = version;
+      _imageFuture = _repository.imageRequest(report.id, version: version);
     }
     return _imageFuture!;
   }
@@ -55,6 +59,7 @@ class ReportDetailController extends GetxController {
   void updateReport(ReportModel updated) {
     report.value = updated;
     _imageReportId = null;
+    _imageVersion = null;
     _imageFuture = null;
   }
 

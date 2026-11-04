@@ -3,15 +3,20 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/painting.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:swms_mobile/features/reports/data/report_repository.dart';
+import 'package:swms_mobile/features/reports/presentation/report_image_provider.dart';
 
 void main() {
   test('updates with multipart POST and PATCH method override', () async {
     final adapter = _ReportAdapter();
     final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test'))
       ..httpClientAdapter = adapter;
-    final repository = ReportRepository(dio);
+    final repository = ReportRepository(
+      dio,
+      readToken: () async => 'test-token',
+    );
 
     await repository.update(
       id: 42,
@@ -39,7 +44,10 @@ void main() {
     final adapter = _ReportAdapter();
     final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test'))
       ..httpClientAdapter = adapter;
-    final repository = ReportRepository(dio);
+    final repository = ReportRepository(
+      dio,
+      readToken: () async => 'test-token',
+    );
 
     await repository.delete(42);
 
@@ -48,18 +56,55 @@ void main() {
   });
 
   test(
-    'loads report image bytes through the authenticated API route',
+    'builds a streaming image request with auth and cache version',
     () async {
-      final adapter = _ReportAdapter();
-      final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test'))
-        ..httpClientAdapter = adapter;
-      final repository = ReportRepository(dio);
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1/'));
+      final repository = ReportRepository(
+        dio,
+        readToken: () async => 'test-token',
+      );
 
-      final bytes = await repository.image(42);
+      final request = await repository.imageRequest(42, version: 123456);
 
-      expect(adapter.requests.single.method, 'GET');
-      expect(adapter.requests.single.path, '/reports/42/image');
-      expect(bytes, [1, 2, 3]);
+      expect(
+        request.uri.toString(),
+        'https://api.example.test/api/v1/reports/42/image?v=123456',
+      );
+      expect(request.headers, {
+        'Authorization': 'Bearer test-token',
+        'Accept': 'image/*',
+      });
+    },
+  );
+
+  test('does not create an image request without an auth token', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1'));
+    final repository = ReportRepository(dio, readToken: () async => null);
+
+    await expectLater(
+      repository.imageRequest(42, version: 1),
+      throwsA(isA<Exception>()),
+    );
+  });
+
+  test(
+    'image cache key varies by auth token without printing the token',
+    () async {
+      final first = ReportImageProvider(
+        'https://api.example.test/api/v1/reports/42/image?v=1',
+        headers: {'Authorization': 'Bearer first-secret'},
+      );
+      final second = ReportImageProvider(
+        'https://api.example.test/api/v1/reports/42/image?v=1',
+        headers: {'Authorization': 'Bearer second-secret'},
+      );
+
+      final firstKey = await first.obtainKey(ImageConfiguration.empty);
+      final secondKey = await second.obtainKey(ImageConfiguration.empty);
+
+      expect(firstKey, isNot(secondKey));
+      expect(firstKey.toString(), isNot(contains('first-secret')));
+      expect(first.toString(), isNot(contains('first-secret')));
     },
   );
 }
@@ -89,16 +134,6 @@ class _ReportAdapter implements HttpClientAdapter {
         body: utf8.decode(chunks),
       ),
     );
-
-    if (options.method == 'GET' && options.path.endsWith('/image')) {
-      return ResponseBody.fromBytes(
-        Uint8List.fromList([1, 2, 3]),
-        200,
-        headers: {
-          Headers.contentTypeHeader: ['image/png'],
-        },
-      );
-    }
 
     final response = options.method == 'DELETE'
         ? {'message': 'Laporan berhasil dihapus.'}

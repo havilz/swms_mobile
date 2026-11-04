@@ -30,7 +30,10 @@ class SwmsApp extends StatelessWidget {
     final tokenStorage = TokenStorage();
     final apiClient = ApiClient(config: config, tokenStorage: tokenStorage);
     final authRepository = AuthRepository(apiClient.dio);
-    final reportRepository = ReportRepository(apiClient.dio);
+    final reportRepository = ReportRepository(
+      apiClient.dio,
+      readToken: tokenStorage.read,
+    );
 
     return GetMaterialApp(
       title: 'SWMS',

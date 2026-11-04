@@ -1,15 +1,21 @@
-import 'dart:typed_data';
-
 import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/network/api_exception.dart';
 import 'report_model.dart';
 
+class ReportImageRequest {
+  const ReportImageRequest({required this.uri, required this.headers});
+
+  final Uri uri;
+  final Map<String, String> headers;
+}
+
 class ReportRepository {
-  ReportRepository(this._dio);
+  ReportRepository(this._dio, {required this._readToken});
 
   final Dio _dio;
+  final Future<String?> Function() _readToken;
 
   Future<ReportPage> list({
     String? status,
@@ -40,20 +46,25 @@ class ReportRepository {
     }
   }
 
-  Future<Uint8List> image(int id) async {
-    try {
-      final response = await _dio.get<List<int>>(
-        '/reports/$id/image',
-        options: Options(responseType: ResponseType.bytes),
+  Future<ReportImageRequest> imageRequest(
+    int id, {
+    required int version,
+  }) async {
+    final token = await _readToken();
+    if (token == null || token.isEmpty) {
+      throw const ApiException(
+        message: 'Sesi berakhir. Silakan masuk kembali.',
+        statusCode: 401,
       );
-      final bytes = response.data;
-      if (bytes == null || bytes.isEmpty) {
-        throw const FormatException('Foto laporan kosong.');
-      }
-      return Uint8List.fromList(bytes);
-    } on DioException catch (error) {
-      throw ApiException.fromDio(error);
     }
+
+    final baseUrl = _dio.options.baseUrl.replaceFirst(RegExp(r'/+$'), '');
+    final uri = Uri.parse('$baseUrl/reports/$id/image')
+        .replace(queryParameters: {'v': version.toString()});
+    return ReportImageRequest(
+      uri: uri,
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'image/*'},
+    );
   }
 
   Future<ReportModel> create({

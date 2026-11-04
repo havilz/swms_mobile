@@ -28,14 +28,22 @@ class ReportFormController extends GetxController {
   ReportModel? editing;
   ReportModel? updatedReport;
   int? _existingImageReportId;
-  Future<Uint8List>? _existingImageFuture;
+  int? _existingImageVersion;
+  Future<ReportImageRequest>? _existingImageFuture;
 
   bool get isEditing => editing != null;
 
-  Future<Uint8List> loadExistingImage(int reportId) {
-    if (_existingImageReportId != reportId || _existingImageFuture == null) {
-      _existingImageReportId = reportId;
-      _existingImageFuture = _repository.image(reportId);
+  Future<ReportImageRequest> loadExistingImage(ReportModel report) {
+    final version = report.updatedAt?.microsecondsSinceEpoch ?? 0;
+    if (_existingImageReportId != report.id ||
+        _existingImageVersion != version ||
+        _existingImageFuture == null) {
+      _existingImageReportId = report.id;
+      _existingImageVersion = version;
+      _existingImageFuture = _repository.imageRequest(
+        report.id,
+        version: version,
+      );
     }
     return _existingImageFuture!;
   }

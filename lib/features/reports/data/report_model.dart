@@ -11,6 +11,7 @@ class ReportModel {
     this.imagePath,
     this.adminNotes,
     this.createdAt,
+    this.updatedAt,
   });
 
   final int id;
@@ -24,6 +25,7 @@ class ReportModel {
   final String? imagePath;
   final String? adminNotes;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   factory ReportModel.fromJson(Map<String, dynamic> json) => ReportModel(
     id: _asInt(json['id']),
@@ -37,6 +39,7 @@ class ReportModel {
     imagePath: json['image_url'] as String? ?? json['image_path'] as String?,
     adminNotes: json['admin_notes'] as String?,
     createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+    updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
   );
 
   static int _asInt(Object? value) =>

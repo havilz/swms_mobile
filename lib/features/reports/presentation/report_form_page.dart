@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -8,6 +6,7 @@ import '../../../shared/theme/app_theme.dart';
 import '../../../shared/ui/atoms/app_text_field.dart';
 import 'map_picker_page.dart';
 import 'report_form_controller.dart';
+import 'report_image_provider.dart';
 
 class ReportFormPage extends StatefulWidget {
   const ReportFormPage({super.key});
@@ -143,8 +142,8 @@ class _ReportFormPageState extends State<ReportFormPage> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: FutureBuilder<Uint8List>(
-                      future: controller.loadExistingImage(editing!.id),
+                    child: FutureBuilder(
+                      future: controller.loadExistingImage(editing!),
                       builder: (context, snapshot) {
                         if (snapshot.hasError) {
                           return const SizedBox(
@@ -153,7 +152,8 @@ class _ReportFormPageState extends State<ReportFormPage> {
                             child: Icon(Icons.broken_image_outlined),
                           );
                         }
-                        if (!snapshot.hasData) {
+                        final imageRequest = snapshot.data;
+                        if (imageRequest == null) {
                           return const SizedBox(
                             width: 76,
                             height: 76,
@@ -162,11 +162,20 @@ class _ReportFormPageState extends State<ReportFormPage> {
                             ),
                           );
                         }
-                        return Image.memory(
-                          snapshot.data!,
+                        return Image(
+                          image: ReportImageProvider(
+                            imageRequest.uri.toString(),
+                            headers: imageRequest.headers,
+                          ),
                           width: 76,
                           height: 76,
                           fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const SizedBox(
+                                width: 76,
+                                height: 76,
+                                child: Icon(Icons.broken_image_outlined),
+                              ),
                         );
                       },
                     ),
