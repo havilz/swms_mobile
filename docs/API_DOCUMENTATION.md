@@ -185,7 +185,8 @@ Authorization: Bearer <token>
       "location_address": "Taman Kota",
       "latitude": "-6.2000000",
       "longitude": "106.8000000",
-      "image_path": "reports/example.jpg",
+      "image_url": "https://pub-c956ace443384e5d97c55b5406d3c802.r2.dev/reports/example.jpg",
+      "image_path": "https://pub-c956ace443384e5d97c55b5406d3c802.r2.dev/reports/example.jpg",
       "status": "pending",
       "admin_notes": null,
       "created_at": "2026-11-02T10:00:00.000000Z",
@@ -201,7 +202,7 @@ Authorization: Bearer <token>
 }
 ```
 
-`image_path` adalah path storage saat ini, bukan URL absolut. Mobile client sebaiknya memperlakukan nilai ini sebagai path sampai endpoint media/public URL ditetapkan secara resmi.
+Database menyimpan URL publik penuh pada kolom `image_url`. API mengembalikan `image_url` dan alias `image_path` dengan nilai yang sama untuk kompatibilitas client; aplikasi dapat memakai URL tersebut langsung untuk menampilkan gambar.
 
 ### POST `/reports`
 
@@ -247,7 +248,8 @@ curl -X POST "${PRODUCTION_API_URL}/reports" \
     "location_address": "Taman Kota",
     "latitude": "-6.2000000",
     "longitude": "106.8000000",
-    "image_path": "reports/example.jpg",
+    "image_url": "https://pub-c956ace443384e5d97c55b5406d3c802.r2.dev/reports/example.jpg",
+    "image_path": "https://pub-c956ace443384e5d97c55b5406d3c802.r2.dev/reports/example.jpg",
     "status": "pending",
     "admin_notes": null,
     "created_at": "2026-11-02T10:00:00.000000Z",
@@ -274,7 +276,8 @@ User yang bukan pemilik laporan menerima `403 Forbidden`.
     "location_address": "Taman Kota",
     "latitude": "-6.2000000",
     "longitude": "106.8000000",
-    "image_path": "reports/example.jpg",
+    "image_url": "https://pub-c956ace443384e5d97c55b5406d3c802.r2.dev/reports/example.jpg",
+    "image_path": "https://pub-c956ace443384e5d97c55b5406d3c802.r2.dev/reports/example.jpg",
     "status": "pending",
     "admin_notes": null,
     "created_at": "2026-11-02T10:00:00.000000Z",
@@ -283,21 +286,28 @@ User yang bukan pemilik laporan menerima `403 Forbidden`.
 }
 ```
 
+### PATCH `/reports/{report}`
+
+Memperbarui laporan milik user yang sedang login. Pemilik lain menerima `403 Forbidden`. Request menerima JSON atau `multipart/form-data` bila mengganti foto.
+
+Field yang dapat diubah: `title`, `description`, `location_address`, `latitude`, `longitude`, `image`, dan `remove_image`. Field bersifat opsional, tetapi minimal satu perubahan harus dikirim. User tidak dapat mengubah `status`, `admin_notes`, atau `user_id`; status hanya dapat diperbarui admin.
+
+Kirim `remove_image: true` untuk menghapus gambar lama. `image` dan `remove_image` tidak boleh dikirim bersamaan. Response `200 OK` berisi data laporan yang telah diperbarui.
+
 ## Backend API gaps for the mobile app
 
-The mobile app now includes Edit and Delete controls on report history/detail, but the current `/api/v1` contract does not expose mobile routes for either operation:
+Edit report sekarang didukung oleh backend:
 
-- `PATCH /reports/{report}` is not available. The edit form sends the report fields as multipart data and displays the server error; it never reports a successful save unless the API returns success.
-- `DELETE /reports/{report}` is not available. A delete service and admin web route do not provide an owner-authorized mobile endpoint; the mobile action displays the API error and does not remove the report locally.
-- Add owner authorization, request validation, and documented success/error responses for both routes before treating these actions as available.
-- `image_path` remains a storage path rather than a public or authorized image URL, so the app does not present it as a directly loadable image.
+- `PATCH /reports/{report}` memvalidasi field yang dapat diedit user dan memeriksa kepemilikan laporan. User tidak dapat mengubah status atau catatan admin.
+- `DELETE /reports/{report}` tetap tidak tersedia untuk user; penghapusan laporan hanya untuk admin melalui Admin API.
+- `image_url` (dan alias kompatibilitas `image_path`) berisi URL publik absolut R2.
 - For map selection, configure a restricted client key named `GOOGLE_MAPS_API_KEY`. Android reads it from the ignored `.env` during Gradle configuration. iOS requires an Xcode build setting with the same name. The app still allows GPS coordinates and manual addresses when a map key is absent.
 
-These are API integration gaps for a future backend update; no backend files were changed for this mobile implementation.
+Backend juga menyediakan Admin API yang dilindungi Sanctum dan role `admin`. Web UI backend dibatasi pada login admin dan health check API.
 
 ## Report Status
 
-Status laporan dikelola administrator melalui dashboard web. Mobile client hanya membaca status dan `admin_notes`.
+Status laporan dikelola administrator melalui Admin API. Mobile client hanya membaca status dan `admin_notes`; user tidak dapat mengubahnya.
 
 ```text
 pending â”€â”€> in_progress â”€â”€> completed
