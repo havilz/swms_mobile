@@ -202,7 +202,7 @@ Authorization: Bearer <token>
 }
 ```
 
-Database menyimpan URL publik penuh pada kolom `image_url`. API mengembalikan `image_url` dan alias `image_path` dengan nilai yang sama untuk kompatibilitas client; aplikasi dapat memakai URL tersebut langsung untuk menampilkan gambar.
+Database menyimpan URL publik penuh pada kolom `image_url`. API mengembalikan `image_url` dan alias `image_path` dengan nilai yang sama untuk kompatibilitas client. Aplikasi mobile memuat byte foto melalui endpoint terautentikasi `GET /reports/{report}/image`, bukan dengan membuka URL R2 langsung.
 
 ### POST `/reports`
 
@@ -286,6 +286,10 @@ User yang bukan pemilik laporan menerima `403 Forbidden`.
 }
 ```
 
+### GET `/reports/{report}/image`
+
+Mengunduh byte foto laporan melalui backend. Token Sanctum wajib dikirim pada header `Authorization`; hanya pemilik laporan yang dapat mengakses foto. Response sukses mengembalikan byte gambar dengan MIME `image/jpeg`, `image/png`, atau `image/webp`. Endpoint ini tidak mengembalikan URL redirect ke R2.
+
 ### PATCH `/reports/{report}`
 
 Memperbarui laporan milik user yang sedang login. Pemilik lain menerima `403 Forbidden`. Request menerima JSON atau `multipart/form-data` bila mengganti foto.
@@ -300,7 +304,8 @@ Edit report sekarang didukung oleh backend:
 
 - `PATCH /reports/{report}` memvalidasi field yang dapat diedit user dan memeriksa kepemilikan laporan. User tidak dapat mengubah status atau catatan admin.
 - `DELETE /reports/{report}` tetap tidak tersedia untuk user; penghapusan laporan hanya untuk admin melalui Admin API.
-- `image_url` (dan alias kompatibilitas `image_path`) berisi URL publik absolut R2.
+- `image_url` (dan alias kompatibilitas `image_path`) masih berisi URL publik absolut R2 untuk kompatibilitas API.
+- Mobile harus memuat foto melalui `GET /reports/{report}/image`, yang meneruskan byte gambar setelah autentikasi dan pemeriksaan kepemilikan.
 - For map selection, configure a restricted client key named `GOOGLE_MAPS_API_KEY`. Android reads it from the ignored `.env` during Gradle configuration. iOS requires an Xcode build setting with the same name. The app still allows GPS coordinates and manual addresses when a map key is absent.
 
 Backend juga menyediakan Admin API yang dilindungi Sanctum dan role `admin`. Web UI backend dibatasi pada login admin dan health check API.

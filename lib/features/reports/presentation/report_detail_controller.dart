@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:get/get.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -11,7 +13,10 @@ class ReportDetailController extends GetxController {
   final ReportRepository _repository;
   final report = Rxn<ReportModel>();
   final isLoading = true.obs;
+  final isDeleting = false.obs;
   final errorMessage = RxnString();
+  int? _imageReportId;
+  Future<Uint8List>? _imageFuture;
 
   @override
   void onInit() {
@@ -29,6 +34,8 @@ class ReportDetailController extends GetxController {
     isLoading.value = true;
     try {
       report.value = await _repository.detail(reportId);
+      _imageReportId = null;
+      _imageFuture = null;
       errorMessage.value = null;
     } on ApiException catch (error) {
       errorMessage.value = error.message;
@@ -37,9 +44,25 @@ class ReportDetailController extends GetxController {
     }
   }
 
+  Future<Uint8List> loadImage(int reportId) {
+    if (_imageReportId != reportId || _imageFuture == null) {
+      _imageReportId = reportId;
+      _imageFuture = _repository.image(reportId);
+    }
+    return _imageFuture!;
+  }
+
+  void updateReport(ReportModel updated) {
+    report.value = updated;
+    _imageReportId = null;
+    _imageFuture = null;
+  }
+
   Future<void> delete() async {
     final current = report.value;
-    if (current == null) return;
+    if (current == null || isDeleting.value) return;
+    isDeleting.value = true;
+    errorMessage.value = null;
     try {
       await _repository.delete(current.id);
       if (Get.isRegistered<DashboardController>()) {
@@ -49,6 +72,8 @@ class ReportDetailController extends GetxController {
       Get.snackbar('Laporan dihapus', 'Laporan berhasil dihapus.');
     } on ApiException catch (error) {
       errorMessage.value = error.message;
+    } finally {
+      isDeleting.value = false;
     }
   }
 }

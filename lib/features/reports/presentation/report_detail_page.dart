@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/ui/atoms/status_badge.dart';
+import '../data/report_model.dart';
 import 'report_detail_controller.dart';
 
 class ReportDetailPage extends GetView<ReportDetailController> {
@@ -75,6 +78,51 @@ class ReportDetailPage extends GetView<ReportDetailController> {
                 ? report.adminNotes!
                 : 'Belum ada catatan dari admin.',
           ),
+          if (report.imagePath != null && report.imagePath!.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Text(
+              'Foto laporan',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              height: 280,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: FutureBuilder<Uint8List>(
+                future: controller.loadImage(report.id),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text('Foto laporan tidak dapat dimuat.'),
+                      ),
+                    );
+                  }
+                  if (!snapshot.hasData) {
+                    return const Center(
+                      child: SizedBox(
+                        width: 180,
+                        child: LinearProgressIndicator(),
+                      ),
+                    );
+                  }
+                  return Image.memory(
+                    snapshot.data!,
+                    width: double.infinity,
+                    height: 280,
+                    fit: BoxFit.contain,
+                  );
+                },
+              ),
+            ),
+          ],
           if (controller.errorMessage.value != null) ...[
             const SizedBox(height: 10),
             Text(
@@ -87,8 +135,15 @@ class ReportDetailPage extends GetView<ReportDetailController> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () =>
-                      Get.toNamed('/reports/edit', arguments: report),
+                  onPressed: () async {
+                    final updated = await Get.toNamed(
+                      '/reports/edit',
+                      arguments: report,
+                    );
+                    if (updated is ReportModel) {
+                      controller.updateReport(updated);
+                    }
+                  },
                   icon: const Icon(Icons.edit_outlined),
                   label: const Text('Edit'),
                 ),
@@ -99,17 +154,22 @@ class ReportDetailPage extends GetView<ReportDetailController> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFB42318),
                   ),
-                  onPressed: () => _confirmDelete(context),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Hapus'),
+                  onPressed: controller.isDeleting.value
+                      ? null
+                      : () => _confirmDelete(context),
+                  icon: controller.isDeleting.value
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.delete_outline),
+                  label: Text(
+                    controller.isDeleting.value ? 'Menghapus...' : 'Hapus',
+                  ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Aksi edit/hapus memerlukan endpoint mobile yang saat ini belum tersedia.',
-            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
       );
@@ -121,9 +181,7 @@ class ReportDetailPage extends GetView<ReportDetailController> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Hapus laporan?'),
-        content: const Text(
-          'Laporan ini akan dihapus jika server mendukung aksi tersebut.',
-        ),
+        content: const Text('Laporan dan foto yang terlampir akan dihapus.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

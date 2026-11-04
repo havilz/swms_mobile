@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -130,11 +132,70 @@ class _ReportFormPageState extends State<ReportFormPage> {
           const SizedBox(height: 12),
           Obx(() {
             final file = controller.image.value;
+            final editing = controller.editing;
+            final showExistingImage =
+                file == null &&
+                editing?.imagePath != null &&
+                !controller.removeExistingImage.value;
+
+            if (showExistingImage) {
+              return Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: FutureBuilder<Uint8List>(
+                      future: controller.loadExistingImage(editing!.id),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return const SizedBox(
+                            width: 76,
+                            height: 76,
+                            child: Icon(Icons.broken_image_outlined),
+                          );
+                        }
+                        if (!snapshot.hasData) {
+                          return const SizedBox(
+                            width: 76,
+                            height: 76,
+                            child: Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+                        return Image.memory(
+                          snapshot.data!,
+                          width: 76,
+                          height: 76,
+                          fit: BoxFit.cover,
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(child: Text('Foto laporan saat ini')),
+                  IconButton(
+                    tooltip: 'Hapus foto saat ini',
+                    onPressed: controller.removeCurrentImage,
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                  IconButton(
+                    tooltip: 'Ganti foto',
+                    onPressed: controller.chooseImage,
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                ],
+              );
+            }
+
             if (file == null) {
               return OutlinedButton.icon(
                 onPressed: controller.chooseImage,
                 icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: const Text('Pilih foto'),
+                label: Text(
+                  controller.removeExistingImage.value
+                      ? 'Pilih foto pengganti'
+                      : 'Pilih foto',
+                ),
               );
             }
             return Row(
@@ -143,18 +204,27 @@ class _ReportFormPageState extends State<ReportFormPage> {
                   borderRadius: BorderRadius.circular(8),
                   child: FutureBuilder(
                     future: file.readAsBytes(),
-                    builder: (context, snapshot) => snapshot.hasData
-                        ? Image.memory(
-                            snapshot.data!,
-                            width: 76,
-                            height: 76,
-                            fit: BoxFit.cover,
-                          )
-                        : const SizedBox(
-                            width: 76,
-                            height: 76,
-                            child: Center(child: CircularProgressIndicator()),
-                          ),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return const SizedBox(
+                          width: 76,
+                          height: 76,
+                          child: Icon(Icons.broken_image_outlined),
+                        );
+                      }
+                      return snapshot.hasData
+                          ? Image.memory(
+                              snapshot.data!,
+                              width: 76,
+                              height: 76,
+                              fit: BoxFit.cover,
+                            )
+                          : const SizedBox(
+                              width: 76,
+                              height: 76,
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -167,12 +237,25 @@ class _ReportFormPageState extends State<ReportFormPage> {
                 ),
                 IconButton(
                   tooltip: 'Hapus foto',
-                  onPressed: () => controller.image.value = null,
+                  onPressed: controller.clearImageSelection,
                   icon: const Icon(Icons.close),
                 ),
               ],
             );
           }),
+          Obx(
+            () =>
+                controller.removeExistingImage.value &&
+                    controller.image.value == null
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Foto saat ini akan dihapus saat perubahan disimpan.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
           const SizedBox(height: 14),
           Obx(() {
             final error = controller.errorMessage.value;
@@ -224,8 +307,13 @@ class _ReportFormPageState extends State<ReportFormPage> {
     if (!_formKey.currentState!.validate()) return;
     final success = await controller.submit();
     if (success) {
-      Get.back();
-      Get.snackbar('Laporan terkirim', 'Laporan Anda berhasil dikirim.');
+      Get.back(result: controller.updatedReport);
+      Get.snackbar(
+        controller.isEditing ? 'Laporan diperbarui' : 'Laporan terkirim',
+        controller.isEditing
+            ? 'Perubahan laporan berhasil disimpan.'
+            : 'Laporan Anda berhasil dikirim.',
+      );
     }
   }
 }

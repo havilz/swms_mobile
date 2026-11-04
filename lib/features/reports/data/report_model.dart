@@ -34,7 +34,7 @@ class ReportModel {
     status: json['status'] as String? ?? 'pending',
     latitude: _asDouble(json['latitude']),
     longitude: _asDouble(json['longitude']),
-    imagePath: json['image_path'] as String?,
+    imagePath: json['image_url'] as String? ?? json['image_path'] as String?,
     adminNotes: json['admin_notes'] as String?,
     createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
   );

@@ -29,4 +29,19 @@ void main() {
       expect(page.items.single.adminNotes, 'Sedang ditangani');
     },
   );
+
+  test('prefers image_url and falls back to image_path', () {
+    final imageUrl = ReportModel.fromJson({
+      'id': 1,
+      'image_url': 'https://cdn.example.test/new.jpg',
+      'image_path': 'https://cdn.example.test/legacy.jpg',
+    });
+    final legacyImage = ReportModel.fromJson({
+      'id': 2,
+      'image_path': 'https://cdn.example.test/legacy.jpg',
+    });
+
+    expect(imageUrl.imagePath, 'https://cdn.example.test/new.jpg');
+    expect(legacyImage.imagePath, 'https://cdn.example.test/legacy.jpg');
+  });
 }

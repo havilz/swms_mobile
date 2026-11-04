@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -38,6 +40,22 @@ class ReportRepository {
     }
   }
 
+  Future<Uint8List> image(int id) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        '/reports/$id/image',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty) {
+        throw const FormatException('Foto laporan kosong.');
+      }
+      return Uint8List.fromList(bytes);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
   Future<ReportModel> create({
     required String title,
     required String description,
@@ -66,16 +84,19 @@ class ReportRepository {
     double? latitude,
     double? longitude,
     XFile? image,
+    bool removeImage = false,
   }) async {
     return _submit(
       '/reports/$id',
-      'PATCH',
+      'POST',
       title: title,
       description: description,
       address: address,
       latitude: latitude,
       longitude: longitude,
       image: image,
+      methodOverride: 'PATCH',
+      removeImage: removeImage,
     );
   }
 
@@ -88,20 +109,26 @@ class ReportRepository {
     double? latitude,
     double? longitude,
     XFile? image,
+    String? methodOverride,
+    bool removeImage = false,
   }) async {
     try {
-      final data = FormData.fromMap({
+      final fields = <String, dynamic>{
         'title': title,
         'description': description,
         'location_address': address,
         'latitude': ?latitude,
         'longitude': ?longitude,
-        if (image != null)
-          'image': await MultipartFile.fromFile(
-            image.path,
-            filename: image.name,
-          ),
-      });
+      };
+      if (methodOverride != null) fields['_method'] = methodOverride;
+      if (removeImage) fields['remove_image'] = true;
+      if (image != null) {
+        fields['image'] = MultipartFile.fromBytes(
+          await image.readAsBytes(),
+          filename: image.name,
+        );
+      }
+      final data = FormData.fromMap(fields);
       final response = await _dio.request<Map<String, dynamic>>(
         path,
         data: data,

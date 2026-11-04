@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
@@ -18,14 +19,26 @@ class ReportFormController extends GetxController {
   final descriptionController = TextEditingController();
   final addressController = TextEditingController();
   final image = Rxn<XFile>();
+  final removeExistingImage = false.obs;
   final latitude = RxnDouble();
   final longitude = RxnDouble();
   final isSubmitting = false.obs;
   final isLocating = false.obs;
   final errorMessage = RxnString();
   ReportModel? editing;
+  ReportModel? updatedReport;
+  int? _existingImageReportId;
+  Future<Uint8List>? _existingImageFuture;
 
   bool get isEditing => editing != null;
+
+  Future<Uint8List> loadExistingImage(int reportId) {
+    if (_existingImageReportId != reportId || _existingImageFuture == null) {
+      _existingImageReportId = reportId;
+      _existingImageFuture = _repository.image(reportId);
+    }
+    return _existingImageFuture!;
+  }
 
   @override
   void onInit() {
@@ -51,21 +64,40 @@ class ReportFormController extends GetxController {
 
   Future<void> chooseImage() async {
     errorMessage.value = null;
-    final selected = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-    );
-    if (selected == null) return;
-    final extension = selected.name.split('.').last.toLowerCase();
-    if (!const {'jpg', 'jpeg', 'png', 'webp'}.contains(extension)) {
-      errorMessage.value = 'Format foto harus JPG, JPEG, PNG, atau WEBP.';
-      return;
+    try {
+      final selected = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
+      if (selected == null) return;
+      final extension = selected.name.split('.').last.toLowerCase();
+      if (!const {'jpg', 'jpeg', 'png', 'webp'}.contains(extension)) {
+        errorMessage.value = 'Format foto harus JPG, JPEG, PNG, atau WEBP.';
+        return;
+      }
+      if (await selected.length() > 5 * 1024 * 1024) {
+        errorMessage.value = 'Ukuran foto maksimal 5 MB.';
+        return;
+      }
+      image.value = selected;
+      removeExistingImage.value = false;
+    } on PlatformException {
+      errorMessage.value = 'Galeri tidak dapat dibuka. Coba pilih foto lagi.';
+    } on Exception {
+      errorMessage.value = 'Foto tidak dapat dibaca. Coba pilih file lain.';
     }
-    if (await selected.length() > 5 * 1024 * 1024) {
-      errorMessage.value = 'Ukuran foto maksimal 5 MB.';
-      return;
-    }
-    image.value = selected;
+  }
+
+  void clearImageSelection() {
+    image.value = null;
+    removeExistingImage.value = false;
+  }
+
+  void removeCurrentImage() {
+    image.value = null;
+    removeExistingImage.value = isEditing && editing?.imagePath != null;
   }
 
   Future<void> locateMe() async {
@@ -164,7 +196,7 @@ class ReportFormController extends GetxController {
     isSubmitting.value = true;
     try {
       if (isEditing) {
-        await _repository.update(
+        updatedReport = await _repository.update(
           id: editing!.id,
           title: titleController.text.trim(),
           description: descriptionController.text.trim(),
@@ -172,6 +204,7 @@ class ReportFormController extends GetxController {
           latitude: latitude.value,
           longitude: longitude.value,
           image: image.value,
+          removeImage: removeExistingImage.value,
         );
       } else {
         await _repository.create(
