@@ -55,6 +55,10 @@ app.*.map.json
 /graphify-out/
 /.taste-skill/
 
+# Keep only the public API documentation in the repository
+/docs/**
+!/docs/API_DOCUMENTATION.md
+
 # Environment files can contain production configuration or credentials
 /.env
 /.env.*
